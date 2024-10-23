@@ -25,7 +25,10 @@ func main() {
 }
 
 func homeHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Welcome to the Go File Server. Use /upload to upload files.")
+	// fmt.Fprintf(w, "Welcome to the Go File Server. Use /upload to upload files.")
+	htmlPath := filepath.Join("static", "index.html")
+
+	http.ServeFile(w, r, htmlPath)
 }
 
 func uploadHandler(w http.ResponseWriter, r *http.Request) {
