@@ -6,15 +6,19 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"golang.org/x/crypto/bcrypt"
 )
 
 const uploadDir = "./uploads"
 
 func main() {
+	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 	http.HandleFunc("/", homeHandler)
+	http.HandleFunc("/register", registerHandler)
 	http.HandleFunc("/upload", uploadHandler)
 	http.HandleFunc("/files/", downloadHandler)
 	http.HandleFunc("/delete/", deleteHandler)
+	
 
 	if _, err := os.Stat(uploadDir); os.IsNotExist(err) {
 		os.Mkdir(uploadDir, os.ModePerm)
@@ -25,9 +29,12 @@ func main() {
 }
 
 func homeHandler(w http.ResponseWriter, r *http.Request) {
-	// fmt.Fprintf(w, "Welcome to the Go File Server. Use /upload to upload files.")
 	htmlPath := filepath.Join("static", "index.html")
+	http.ServeFile(w, r, htmlPath)
+}
 
+func registerHandler(w http.ResponseWriter, r *http.Request) {
+	htmlPath := filepath.Join("static", "register.html")
 	http.ServeFile(w, r, htmlPath)
 }
 
