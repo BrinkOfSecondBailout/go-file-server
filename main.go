@@ -55,7 +55,30 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func loginHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "POST" {
+		username := r.FormValue("username")
+		password := r.FormValue("password")
 
+		storedPassword, ok := users[username]
+		if !ok {
+			http.Error(w, "Invalid username or password", http.StatusUnauthorized)
+			return
+		}
+
+		err := bcrypt.CompareHashAndPassword([]byte(storedPassword), []byte(password))
+		if err != nil {
+			http.Error(w, "Invalid username or password", http.StatusUnauthorized)
+			return
+		}
+
+		session, _ := store.Get(r, "session-name")
+		session.Values["authenticated"] = true
+		session.Save(r, w)
+
+		fmt.Fprintf(w, "User %s logged in successfully!", username)
+	} else {
+		http.ServeFile(w, r, "static/login.html")
+	}
 }
 
 func uploadHandler(w http.ResponseWriter, r *http.Request) {
