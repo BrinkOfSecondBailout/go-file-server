@@ -10,11 +10,14 @@ import (
 )
 
 const uploadDir = "./uploads"
+var users = map[string]string{}
+
 
 func main() {
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 	http.HandleFunc("/", homeHandler)
 	http.HandleFunc("/register", registerHandler)
+	http.HandleFunc("/login", loginHandler)
 	http.HandleFunc("/upload", uploadHandler)
 	http.HandleFunc("/files/", downloadHandler)
 	http.HandleFunc("/delete/", deleteHandler)
@@ -34,8 +37,25 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func registerHandler(w http.ResponseWriter, r *http.Request) {
-	htmlPath := filepath.Join("static", "register.html")
-	http.ServeFile(w, r, htmlPath)
+	if r.Method == "POST" {
+		username := r.FormValue("username")
+		password := r.FormValue("password")
+
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+		if err != nil {
+			http.Error(w, "Server error, unable to create account.", 500)
+			return
+		}
+
+		users[username] = string(hashedPassword)
+		fmt.Fprintf(w, "User %s registered successfully!", username)
+	} else {
+		http.ServeFile(w, r, "static/register.html")
+	}
+}
+
+func loginHandler(w http.ResponseWriter, r *http.Request) {
+
 }
 
 func uploadHandler(w http.ResponseWriter, r *http.Request) {
