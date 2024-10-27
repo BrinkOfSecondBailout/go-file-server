@@ -57,19 +57,29 @@ func authMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+type RegisterPageData struct {
+	Message string
+}
+
 func registerHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		username := r.FormValue("username")
 		password := r.FormValue("password")
 
 		if _, exists := users[username]; exists {
-			http.Error(w, "Username already taken. Please choose a different username.", http.StatusConflict)
+			data := RegisterPageData{
+				Message: "Username already taken. Please choose a different username.",
+			}
+			renderTemplate(w, "static/register.html", data)
 			return
 		}
 
 		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 		if err != nil {
-			http.Error(w, "Server error, unable to create account.", 500)
+			data := RegisterPageData{
+				Message: "Server error, unable to create account. Please try again.",
+			}
+			renderTemplate(w, "static/register.html", data)
 			return
 		}
 
@@ -81,8 +91,15 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/upload", http.StatusSeeOther)
 
 	} else {
-		http.ServeFile(w, r, "static/register.html")
+		data := RegisterPageData{
+			Message: "",
+		}
+		renderTemplate(w, "static/register.html", data)
 	}
+}
+
+type LoginPageData struct {
+	Message string
 }
 
 func loginHandler(w http.ResponseWriter, r *http.Request) {
@@ -92,13 +109,19 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 
 		storedPassword, ok := users[username]
 		if !ok {
-			http.Error(w, "Invalid username or password", http.StatusUnauthorized)
+			data := LoginPageData{
+				Message: "Invalid username or password.",
+			}
+			renderTemplate(w, "static/login.html", data)
 			return
 		}
 
 		err := bcrypt.CompareHashAndPassword([]byte(storedPassword), []byte(password))
 		if err != nil {
-			http.Error(w, "Invalid username or password", http.StatusUnauthorized)
+			data := LoginPageData{
+				Message: "Invalid username or password.",
+			}
+			renderTemplate(w, "static/login.html", data)
 			return
 		}
 
@@ -108,7 +131,10 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 
 		http.Redirect(w, r, "/upload", http.StatusSeeOther)
 	} else {
-		http.ServeFile(w, r, "static/login.html")
+		data := LoginPageData{
+			Message: "",
+		}
+		renderTemplate(w, "static/login.html", data)
 	}
 }
 
