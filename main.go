@@ -14,6 +14,7 @@ import (
 const uploadDir = "./uploads"
 var users = map[string]string{}
 var store = sessions.NewCookieStore([]byte("super-secret-key"))
+
 type UploadPageData struct {
 	Files []string
 	Message string
@@ -207,7 +208,7 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func renderTemplate(w http.ResponseWriter, templateFile string, data UploadPageData) {
+func renderTemplate(w http.ResponseWriter, templateFile string, data interface{}) {
 	tmpl, err := template.ParseFiles(templateFile)
 	if err != nil {
 		http.Error(w, "Unable to load page", http.StatusInternalServerError)
