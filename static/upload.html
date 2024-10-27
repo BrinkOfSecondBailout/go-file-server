@@ -13,6 +13,30 @@
         <input type="submit" value="Upload File" />
     </form>
 
+    <h2>Uploaded Files:</h2>
+
+    {{if .Message}}
+        <p>{{.Message}}</p>
+    {{end}}
+
+    <ul>
+        {{range .Files}}
+            <li>{{.}}
+                <div>
+                    <a href="/view/{{.}}" target="_blank"><button>View</button></a>
+                </div>
+                <div>
+                    <a href="/files/{{.}}"><button>Download</button></a>
+                </div>
+                <div>
+                    <a href="/delete/{{.}}"><button>Delete</button></a>
+                </div>
+            </li>
+        {{else}}
+            <li>No files uploaded yet</li>
+        {{end}}
+    </ul>
+
     <a href="/logout">Logout</a>
 </body>
 

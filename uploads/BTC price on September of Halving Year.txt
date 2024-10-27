@@ -1,0 +1,21 @@
+Bitcoin price on September 9th of each Halving Year
+
+Epoch 1:
+
+-64% from high
+668% from low
+
+Epoch 2:
+
+-49% from high
+269% from low
+
+Epoch 3:
+
+-45% from high
+231% from low
+
+Epoch 4:
+
+-21% from high
+249% from low

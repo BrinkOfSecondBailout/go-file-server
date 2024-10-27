@@ -8,11 +8,16 @@ import (
 	"path/filepath"
 	"golang.org/x/crypto/bcrypt"
 	"github.com/gorilla/sessions"
+	"html/template"
 )
 
 const uploadDir = "./uploads"
 var users = map[string]string{}
 var store = sessions.NewCookieStore([]byte("super-secret-key"))
+type UploadPageData struct {
+	Files []string
+	Message string
+}
 
 func main() {
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
@@ -24,6 +29,7 @@ func main() {
 	http.Handle("/upload", authMiddleware(http.HandlerFunc(uploadHandler)))
 	http.Handle("/files/", authMiddleware(http.HandlerFunc(downloadHandler)))
 	http.Handle("/delete/", authMiddleware(http.HandlerFunc(deleteHandler)))
+	http.Handle("/view/", authMiddleware(http.HandlerFunc(viewHandler)))
 
 	if _, err := os.Stat(uploadDir); os.IsNotExist(err) {
 		os.Mkdir(uploadDir, os.ModePerm)
@@ -56,6 +62,11 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 		username := r.FormValue("username")
 		password := r.FormValue("password")
 
+		if _, exists := users[username]; exists {
+			http.Error(w, "Username already taken. Please choose a different username.", http.StatusConflict)
+			return
+		}
+
 		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 		if err != nil {
 			http.Error(w, "Server error, unable to create account.", 500)
@@ -64,10 +75,11 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 
 		users[username] = string(hashedPassword)
 		session, _ := store.Get(r, "session-name")
+
 		session.Values["authenticated"] = true
 		session.Save(r, w)
-		// fmt.Fprintf(w, "User %s registered successfully!", username)
-		http.ServeFile(w, r, "static/upload.html")
+		http.Redirect(w, r, "/upload", http.StatusSeeOther)
+
 	} else {
 		http.ServeFile(w, r, "static/register.html")
 	}
@@ -94,8 +106,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 		session.Values["authenticated"] = true
 		session.Save(r, w)
 
-		// fmt.Fprintf(w, "User %s logged in successfully!", username)
-		http.ServeFile(w, r, "static/upload.html")
+		http.Redirect(w, r, "/upload", http.StatusSeeOther)
 	} else {
 		http.ServeFile(w, r, "static/login.html")
 	}
@@ -103,49 +114,128 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 
 func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
-		// http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
-		// return
-		http.ServeFile(w, r, "static/upload.html")
+		files, err := os.ReadDir(uploadDir)
+		if err != nil {
+			http.Error(w, "Unable to list files", http.StatusInternalServerError)
+			return
+		}
+
+		var fileNames []string
+
+		for _, file := range files {
+			if !file.IsDir() {
+				fileNames = append(fileNames, file.Name())
+			}
+		}
+
+		data := UploadPageData {
+			Files: fileNames,
+			Message: "",
+		}
+
+		tmpl, err := template.ParseFiles("static/upload.html")
+		if err != nil {
+			http.Error(w, "Unable to load upload page", http.StatusInternalServerError)
+			return
+		}
+		tmpl.Execute(w, data)
 	} else {
 		r.ParseMultipartForm(10 << 20) // limit upload size to 10 MB
 		file, handler, err := r.FormFile("file")
 		if err != nil {
-			fmt.Println("Error retrieving file")
-			http.Error(w, "Unable to process file", http.StatusBadRequest)
+			data := UploadPageData{
+				Files: getUploadedFiles(),
+				Message: "Error retrieving file. Please try again.",
+			}
+			renderTemplate(w, "static/upload.html", data)
 			return
 		}
 		defer file.Close()
 	
 		dst, err := os.Create(filepath.Join(uploadDir, handler.Filename))
 		if err != nil {
-			fmt.Println("Error saving the file")
-			http.Error(w, "Unable to save file", http.StatusInternalServerError)
+			data := UploadPageData{
+				Files: getUploadedFiles(),
+				Message: "Error saving the file. Please try again.",
+			}
+			renderTemplate(w, "static/upload.html", data)
 			return
 		}
 		defer dst.Close()
 	
 		if _, err := io.Copy(dst, file); err != nil {
-			http.Error(w, "Unable to save file", http.StatusInternalServerError)
+			data := UploadPageData{
+				Files: getUploadedFiles(),
+				Message: "Error while copying file. Please try again.",
+			}
+			renderTemplate(w, "static/upload.html", data)
 			return
 		}
 	
-		fmt.Fprintf(w, "File uploaded successfully: %s\n", handler.Filename)
+		data := UploadPageData{
+			Files: getUploadedFiles(),
+			Message: fmt.Sprintf("File uploaded successfully: %s", handler.Filename),
+		}
+		renderTemplate(w, "static/upload.html", data)
+		return
+	}
+}
+
+func renderTemplate(w http.ResponseWriter, templateFile string, data UploadPageData) {
+	tmpl, err := template.ParseFiles(templateFile)
+	if err != nil {
+		http.Error(w, "Unable to load page", http.StatusInternalServerError)
+		return
+	}
+	tmpl.Execute(w, data)
+}
+
+func getUploadedFiles() []string {
+	files, err := os.ReadDir(uploadDir)
+	if err != nil {
+		return nil
 	}
 
+	var fileNames []string
+	for _, file := range files {
+		if !file.IsDir() {
+			fileNames = append(fileNames, file.Name())
+		}
+	}
+	return fileNames
+}
+
+func viewHandler(w http.ResponseWriter, r *http.Request) {
+	fileName := r.URL.Path[len("/view/"):]
+	filePath := filepath.Join(uploadDir, fileName)
+
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		http.Error(w, "File not found", http.StatusNotFound)
+		return
+	}
+	http.ServeFile(w, r, filePath)
 }
 
 func downloadHandler(w http.ResponseWriter, r *http.Request) {
 	fileName := r.URL.Path[len("/files/"):]
 
 	if fileName == "" {
-		http.Error(w, "File name is required", http.StatusBadRequest)
+		data := UploadPageData{
+			Files:   getUploadedFiles(),
+			Message: "File name is required.",
+		}
+		renderTemplate(w, "static/upload.html", data)
 		return
 	}
 
 	filePath := filepath.Join(uploadDir, fileName)
 
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		http.Error(w, "File not found", http.StatusNotFound)
+		data := UploadPageData{
+			Files:   getUploadedFiles(),
+			Message: "File not found.",
+		}
+		renderTemplate(w, "static/upload.html", data)
 		return
 	}
 
@@ -159,18 +249,24 @@ func deleteHandler(w http.ResponseWriter, r *http.Request) {
 	fileName := r.URL.Path[len("/delete/"):]
 	filePath := filepath.Join(uploadDir, fileName)
 
+	var message string
+
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		http.Error(w, "File not found", http.StatusNotFound)
-		return
+		message = "File not found."
+	} else {
+		err := os.Remove(filePath)
+		if err != nil {
+			message = "Unable to delete file."
+		} else {
+			message = fmt.Sprintf("File deleted successfully: %s", fileName)
+		}
 	}
 
-	err := os.Remove(filePath)
-	if err != nil {
-		http.Error(w, "Unable to delete file", http.StatusInternalServerError)
-		return
+	data := UploadPageData{
+		Files: getUploadedFiles(),
+		Message: message,
 	}
-
-	fmt.Fprintf(w, "File deleted successfully: %s\n", fileName)
+	renderTemplate(w, "static/upload.html", data)
 }
 
 func logoutHandler(w http.ResponseWriter, r *http.Request) {
