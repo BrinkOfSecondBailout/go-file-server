@@ -9,10 +9,10 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"github.com/gorilla/sessions"
 	"html/template"
-	"image"
-	"image/jpeg"
+	// "image"
+	// "image/jpeg"
 	// "image/png"
-	"golang.org/x/image/draw"
+	// "golang.org/x/image/draw"
 	"strings"
 )
 
@@ -45,55 +45,55 @@ func main() {
 	http.ListenAndServe(":8080", nil)
 }
 
-func hasSuffix(fileName, suffix string) bool {
-	return strings.HasSuffix(fileName, suffix)
-}
+// func hasSuffix(fileName, suffix string) bool {
+// 	return strings.HasSuffix(fileName, suffix)
+// }
 
-func generateThumbnail(filePath string, thumbnailPath string, width int, fileExt string) error {
-	switch fileExt {
-	case ".png", ".jpg":
-		file, err := os.Open(filePath)
-		if err != nil {
-			return err
-		}
-		defer file.Close()
+// func generateThumbnail(filePath string, thumbnailPath string, width int, fileExt string) error {
+// 	switch fileExt {
+// 	case ".png", ".jpg":
+// 		file, err := os.Open(filePath)
+// 		if err != nil {
+// 			return err
+// 		}
+// 		defer file.Close()
 
-		img, _, err := image.Decode(file)
-		if err != nil {
-			return err
-		}
+// 		img, _, err := image.Decode(file)
+// 		if err != nil {
+// 			return err
+// 		}
 
-		newHeight := (img.Bounds().Dy() * width) / img.Bounds().Dx()
-		resizedImg := image.NewRGBA(image.Rect(0, 0, width, newHeight))
-		draw.NearestNeighbor.Scale(resizedImg, resizedImg.Bounds(), img, img.Bounds(), draw.Over, nil)
+// 		newHeight := (img.Bounds().Dy() * width) / img.Bounds().Dx()
+// 		resizedImg := image.NewRGBA(image.Rect(0, 0, width, newHeight))
+// 		draw.NearestNeighbor.Scale(resizedImg, resizedImg.Bounds(), img, img.Bounds(), draw.Over, nil)
 
-		thumbFile, err := os.Create(thumbnailPath)
-		if err != nil {
-			return err
-		}
-		defer thumbFile.Close()
-		return jpeg.Encode(thumbFile, resizedImg, nil)
+// 		thumbFile, err := os.Create(thumbnailPath)
+// 		if err != nil {
+// 			return err
+// 		}
+// 		defer thumbFile.Close()
+// 		return jpeg.Encode(thumbFile, resizedImg, nil)
 	
-	case ".pdf":
-		thumbFile, err := os.Create(thumbnailPath)
-		if err != nil {
-			return err
-		}
-		defer thumbFile.Close()
+// 	case ".pdf":
+// 		thumbFile, err := os.Create(thumbnailPath)
+// 		if err != nil {
+// 			return err
+// 		}
+// 		defer thumbFile.Close()
 
-		pdfPlaceholder := image.NewRGBA(image.Rect(0, 0, width, width))
-		return jpeg.Encode(thumbFile, pdfPlaceholder, nil)
-	default:
-		thumbFile, err := os.Create(thumbnailPath)
-		if err != nil {
-			return err
-		}
-		defer thumbFile.Close()
+// 		pdfPlaceholder := image.NewRGBA(image.Rect(0, 0, width, width))
+// 		return jpeg.Encode(thumbFile, pdfPlaceholder, nil)
+// 	default:
+// 		thumbFile, err := os.Create(thumbnailPath)
+// 		if err != nil {
+// 			return err
+// 		}
+// 		defer thumbFile.Close()
 
-		txtPlaceholder := image.NewRGBA(image.Rect(0, 0, width, width))
-		return jpeg.Encode(thumbFile, txtPlaceholder, nil)
-	}
-}
+// 		txtPlaceholder := image.NewRGBA(image.Rect(0, 0, width, width))
+// 		return jpeg.Encode(thumbFile, txtPlaceholder, nil)
+// 	}
+// }
 
 func homeHandler(w http.ResponseWriter, r *http.Request) {
 	htmlPath := filepath.Join("static", "index.html")
@@ -264,16 +264,16 @@ func renderTemplate(w http.ResponseWriter, templateFile string, data interface{}
 	tmpl.Execute(w, data)
 }
 
-func renderTemplateWithSuffix(w http.ResponseWriter, templateFile string, data interface{}) {
-    tmpl, err := template.New("template").Funcs(template.FuncMap{
-        "hasSuffix": hasSuffix,
-    }).ParseFiles(templateFile)
-    if err != nil {
-        http.Error(w, "Unable to load page", http.StatusInternalServerError)
-        return
-    }
-    tmpl.Execute(w, data)
-}
+// func renderTemplateWithSuffix(w http.ResponseWriter, templateFile string, data interface{}) {
+//     tmpl, err := template.New("template").Funcs(template.FuncMap{
+//         "hasSuffix": hasSuffix,
+//     }).ParseFiles(templateFile)
+//     if err != nil {
+//         http.Error(w, "Unable to load page", http.StatusInternalServerError)
+//         return
+//     }
+//     tmpl.Execute(w, data)
+// }
 
 func getUploadedFiles() []string {
 	files, err := os.ReadDir(uploadDir)
