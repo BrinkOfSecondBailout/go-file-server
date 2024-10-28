@@ -8,7 +8,7 @@
 </head>
 <body>
     <h1>Upload a File</h1>
-    <form enctype="multipart/form-data" action="http://localhost:8080/upload" method="POST">
+    <form enctype="multipart/form-data" action="/upload" method="POST">
         <input type="file" name="file" />
         <input type="submit" value="Upload File" />
     </form>
@@ -21,15 +21,18 @@
 
     <ul>
         {{range .Files}}
-            <li>{{.}}
+            <li>
                 <div>
-                    <a href="/view/{{.}}" target="_blank"><button>View</button></a>
-                </div>
-                <div>
-                    <a href="/files/{{.}}"><button>Download</button></a>
-                </div>
-                <div>
-                    <a href="/delete/{{.}}"><button>Delete</button></a>
+                    <p>{{.}}</p>
+                    <div>
+                        <a href="/view/{{.}}" target="_blank"><button>View</button></a>
+                    </div>
+                    <div>
+                        <a href="/files/{{.}}"><button>Download</button></a>
+                    </div>
+                    <div>
+                        <a href="/delete/{{.}}"><button>Delete</button></a>
+                    </div>
                 </div>
             </li>
         {{else}}

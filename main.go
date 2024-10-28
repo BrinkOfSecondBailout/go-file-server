@@ -9,6 +9,11 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"github.com/gorilla/sessions"
 	"html/template"
+	"image"
+	"image/jpeg"
+	// "image/png"
+	"golang.org/x/image/draw"
+	"strings"
 )
 
 const uploadDir = "./uploads"
@@ -38,6 +43,56 @@ func main() {
 
 	fmt.Println("Server started at :8080")
 	http.ListenAndServe(":8080", nil)
+}
+
+func hasSuffix(fileName, suffix string) bool {
+	return strings.HasSuffix(fileName, suffix)
+}
+
+func generateThumbnail(filePath string, thumbnailPath string, width int, fileExt string) error {
+	switch fileExt {
+	case ".png", ".jpg":
+		file, err := os.Open(filePath)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+
+		img, _, err := image.Decode(file)
+		if err != nil {
+			return err
+		}
+
+		newHeight := (img.Bounds().Dy() * width) / img.Bounds().Dx()
+		resizedImg := image.NewRGBA(image.Rect(0, 0, width, newHeight))
+		draw.NearestNeighbor.Scale(resizedImg, resizedImg.Bounds(), img, img.Bounds(), draw.Over, nil)
+
+		thumbFile, err := os.Create(thumbnailPath)
+		if err != nil {
+			return err
+		}
+		defer thumbFile.Close()
+		return jpeg.Encode(thumbFile, resizedImg, nil)
+	
+	case ".pdf":
+		thumbFile, err := os.Create(thumbnailPath)
+		if err != nil {
+			return err
+		}
+		defer thumbFile.Close()
+
+		pdfPlaceholder := image.NewRGBA(image.Rect(0, 0, width, width))
+		return jpeg.Encode(thumbFile, pdfPlaceholder, nil)
+	default:
+		thumbFile, err := os.Create(thumbnailPath)
+		if err != nil {
+			return err
+		}
+		defer thumbFile.Close()
+
+		txtPlaceholder := image.NewRGBA(image.Rect(0, 0, width, width))
+		return jpeg.Encode(thumbFile, txtPlaceholder, nil)
+	}
 }
 
 func homeHandler(w http.ResponseWriter, r *http.Request) {
@@ -141,31 +196,12 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 
 func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
-		files, err := os.ReadDir(uploadDir)
-		if err != nil {
-			http.Error(w, "Unable to list files", http.StatusInternalServerError)
-			return
-		}
-
-		var fileNames []string
-
-		for _, file := range files {
-			if !file.IsDir() {
-				fileNames = append(fileNames, file.Name())
-			}
-		}
-
-		data := UploadPageData {
-			Files: fileNames,
-			Message: "",
-		}
-
-		tmpl, err := template.ParseFiles("static/upload.html")
-		if err != nil {
-			http.Error(w, "Unable to load upload page", http.StatusInternalServerError)
-			return
-		}
-		tmpl.Execute(w, data)
+		data := UploadPageData{
+            Files: getUploadedFiles(),
+            Message: "",
+        }
+        renderTemplate(w, "static/upload.html", data)
+        return
 	} else {
 		r.ParseMultipartForm(10 << 20) // limit upload size to 10 MB
 		file, handler, err := r.FormFile("file")
@@ -178,6 +214,17 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		defer file.Close()
+
+		fileExt := strings.ToLower(filepath.Ext(handler.Filename))
+		allowedExtensions := map[string]bool{".text": true, ".pdf": true, ".png": true, ".jpg": true}
+		if !allowedExtensions[fileExt] {
+			data := UploadPageData{
+				Files: getUploadedFiles(),
+				Message: "Invalid file type. Only .txt, .pdf, .png, and .jpg are allowed.",
+			}
+			renderTemplate(w, "static/upload.html", data)
+			return
+		}
 	
 		dst, err := os.Create(filepath.Join(uploadDir, handler.Filename))
 		if err != nil {
@@ -217,6 +264,17 @@ func renderTemplate(w http.ResponseWriter, templateFile string, data interface{}
 	tmpl.Execute(w, data)
 }
 
+func renderTemplateWithSuffix(w http.ResponseWriter, templateFile string, data interface{}) {
+    tmpl, err := template.New("template").Funcs(template.FuncMap{
+        "hasSuffix": hasSuffix,
+    }).ParseFiles(templateFile)
+    if err != nil {
+        http.Error(w, "Unable to load page", http.StatusInternalServerError)
+        return
+    }
+    tmpl.Execute(w, data)
+}
+
 func getUploadedFiles() []string {
 	files, err := os.ReadDir(uploadDir)
 	if err != nil {
@@ -240,6 +298,7 @@ func viewHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "File not found", http.StatusNotFound)
 		return
 	}
+
 	http.ServeFile(w, r, filePath)
 }
 
